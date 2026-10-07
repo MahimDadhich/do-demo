@@ -224,12 +224,30 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 
 ---
 
+## Cost-effective failover demo
+
+```bash
+# terminal 1
+DEMO_COST=1 ANTHROPIC_MOCK_MODE=fail OPENAI_MOCK_MODE=stream python3 scripts/demo_mocks.py
+
+# terminal 2
+./scripts/run-cost-demo-gateway.sh
+
+# terminal 3
+curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
+```
+
+**Expect:** body mentions `CHEAP provider`; logs lock `openai-cheap` (cost 2) not `openai-expensive` (cost 20), even though expensive is listed earlier among secondaries in YAML.
+
 ## Suggested 5-minute demo script
 
 1. **404 unknown model** (case 4) — shows routing is config-driven.  
 2. **Failover stream** (case 1) with mocks — show 503 on Anthropic mock terminal + success SSE + `pre_stream_failover` log.  
-3. **Mid-stream hard fail** (case 9) — contrast: no silent switch after first token.  
-4. (Optional) **Real key** one-liner (Mode B) if credentials are available.
+3. **Cost-effective failover** — cheaper secondary wins over expensive.  
+4. **Mid-stream hard fail** (case 9) — contrast: no silent switch after first token.  
+5. (Optional) **Real key** one-liner (Mode B) if credentials are available.
 
 ---
 

@@ -1,0 +1,33 @@
+# Cost-failover demo profile:
+#   primary anthropic (fails) → secondaries sorted by cost → openai-cheap before openai-expensive
+#
+# Start with: ./scripts/run-cost-demo-gateway.sh
+
+gateway:
+  models:
+    assistant-default:
+      targets:
+        - provider: anthropic
+          upstream-model: claude-sonnet-4-20250514
+          credentials-ref: anthropic_default
+          cost: 15.0
+        # Listed before cheap on purpose — cost sort should still prefer openai-cheap.
+        - provider: openai-expensive
+          upstream-model: gpt-expensive
+          credentials-ref: openai_expensive
+          cost: 20.0
+        - provider: openai-cheap
+          upstream-model: gpt-cheap
+          credentials-ref: openai_cheap
+          cost: 2.0
+
+providers:
+  anthropic:
+    base-url: ${ANTHROPIC_BASE_URL:http://127.0.0.1:18081}
+    api-key: ${ANTHROPIC_API_KEY:demo-anthropic}
+  openai-expensive:
+    base-url: ${OPENAI_EXPENSIVE_BASE_URL:http://127.0.0.1:18082}
+    api-key: ${OPENAI_EXPENSIVE_API_KEY:demo-expensive}
+  openai-cheap:
+    base-url: ${OPENAI_CHEAP_BASE_URL:http://127.0.0.1:18083}
+    api-key: ${OPENAI_CHEAP_API_KEY:demo-cheap}

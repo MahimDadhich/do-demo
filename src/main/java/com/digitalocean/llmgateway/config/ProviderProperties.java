@@ -6,6 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ProviderProperties {
 
   private OpenAi openai = new OpenAi();
+  private OpenAi openaiCheap = new OpenAi();
+  private OpenAi openaiExpensive = new OpenAi();
   private Anthropic anthropic = new Anthropic();
 
   public OpenAi getOpenai() {
@@ -14,6 +16,22 @@ public class ProviderProperties {
 
   public void setOpenai(OpenAi openai) {
     this.openai = openai;
+  }
+
+  public OpenAi getOpenaiCheap() {
+    return openaiCheap;
+  }
+
+  public void setOpenaiCheap(OpenAi openaiCheap) {
+    this.openaiCheap = openaiCheap;
+  }
+
+  public OpenAi getOpenaiExpensive() {
+    return openaiExpensive;
+  }
+
+  public void setOpenaiExpensive(OpenAi openaiExpensive) {
+    this.openaiExpensive = openaiExpensive;
   }
 
   public Anthropic getAnthropic() {

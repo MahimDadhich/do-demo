@@ -79,4 +79,46 @@ Then run the same stream curl from step 1.
 
 ---
 
+## Cost-effective failover
+
+Shows: primary fails → among secondaries, **cheaper provider is tried first** even if it was listed after the expensive one in YAML.
+
+Stop previous mocks/gateway if needed (`fuser -k 18081/tcp 18082/tcp 18083/tcp 43127/tcp`).
+
+### Terminal 1 — mocks (primary fail + expensive + cheap)
+
+```bash
+DEMO_COST=1 ANTHROPIC_MOCK_MODE=fail OPENAI_MOCK_MODE=stream python3 scripts/demo_mocks.py
+```
+
+### Terminal 2 — gateway (cost profile)
+
+```bash
+./scripts/run-cost-demo-gateway.sh
+```
+
+Config intent (`application-cost.yml`):
+
+| Target | Role | cost |
+|---|---|---|
+| anthropic | primary | 15 |
+| openai-expensive | secondary (listed 2nd in YAML) | 20 |
+| openai-cheap | secondary (listed 3rd in YAML) | 2 |
+
+Runtime order after sort: **anthropic → openai-cheap → openai-expensive**.
+
+### Terminal 3 — curl
+
+```bash
+curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
+```
+
+**You should see:** stream text `Hello from CHEAP provider` (not EXPENSIVE).  
+**Mocks:** anthropic **503**, then **openai-cheap-mock** 200 — expensive mock stays quiet.  
+**Logs:** `pre_stream_failover` from anthropic → `stream_locked ... provider=openai-cheap`.
+
+---
+
 More cases: [docs/manual-test-plan.md](docs/manual-test-plan.md)

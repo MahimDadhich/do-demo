@@ -13,30 +13,32 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-@Component
+/** OpenAI-compatible chat completions adapter (reusable for multiple provider ids). */
 public class OpenAiAdapter implements ProviderAdapter {
 
+  private final String providerId;
   private final WebClient.Builder webClientBuilder;
   private final ProviderProperties.OpenAi settings;
   private final ObjectMapper objectMapper;
 
   public OpenAiAdapter(
+      String providerId,
       WebClient.Builder webClientBuilder,
-      ProviderProperties providerProperties,
+      ProviderProperties.OpenAi settings,
       ObjectMapper objectMapper) {
+    this.providerId = providerId;
     this.webClientBuilder = webClientBuilder;
-    this.settings = providerProperties.getOpenai();
+    this.settings = settings;
     this.objectMapper = objectMapper;
   }
 
   @Override
   public String id() {
-    return "openai";
+    return providerId;
   }
 
   @Override
@@ -91,7 +93,9 @@ public class OpenAiAdapter implements ProviderAdapter {
         .mutate()
         .filter(
             (req, next) ->
-                next.exchange(req).timeout(UpstreamHttpSupport.orDefault(context.ttfbTimeout(), Duration.ofSeconds(15))))
+                next.exchange(req)
+                    .timeout(
+                        UpstreamHttpSupport.orDefault(context.ttfbTimeout(), Duration.ofSeconds(15))))
         .build();
   }
 
@@ -136,7 +140,7 @@ public class OpenAiAdapter implements ProviderAdapter {
 
   private void requireApiKey() {
     if (settings.getApiKey() == null || settings.getApiKey().isBlank()) {
-      throw GatewayError.unavailable(502, "OPENAI_API_KEY is not configured");
+      throw GatewayError.unavailable(502, providerId + " API key is not configured");
     }
   }
 

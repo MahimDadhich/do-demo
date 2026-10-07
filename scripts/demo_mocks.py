@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Local mock Anthropic + OpenAI upstreams for gateway demos.
+"""Local mock upstreams for gateway demos.
 
-  ANTHROPIC mock : http://127.0.0.1:18081
-  OPENAI mock    : http://127.0.0.1:18082
+Basic demo (default):
+  ANTHROPIC : http://127.0.0.1:18081
+  OPENAI    : http://127.0.0.1:18082
+
+Cost demo (DEMO_COST=1):
+  ANTHROPIC         : 18081  (usually fail)
+  OPENAI-EXPENSIVE  : 18082  (streams "EXPENSIVE provider")
+  OPENAI-CHEAP      : 18083  (streams "CHEAP provider")
 
 Modes for Anthropic (env ANTHROPIC_MOCK_MODE):
-  fail       - HTTP 503 (default) — triggers pre-stream failover
-  stream     - successful Anthropic-shaped SSE
-  hang       - accept connection but never send headers (TTFB timeout)
-  drop       - send one content delta then close abruptly (mid-stream fail)
+  fail / stream / hang / drop
 
-OpenAI mock always streams a short successful OpenAI-shaped SSE completion
-unless OPENAI_MOCK_MODE=fail.
+OpenAI-family mocks use OPENAI_MOCK_MODE=stream|fail (applies to all openai mocks).
 """
 
 from __future__ import annotations
@@ -25,8 +27,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ANTHROPIC_PORT = int(os.environ.get("ANTHROPIC_MOCK_PORT", "18081"))
 OPENAI_PORT = int(os.environ.get("OPENAI_MOCK_PORT", "18082"))
+OPENAI_EXPENSIVE_PORT = int(os.environ.get("OPENAI_EXPENSIVE_MOCK_PORT", "18082"))
+OPENAI_CHEAP_PORT = int(os.environ.get("OPENAI_CHEAP_MOCK_PORT", "18083"))
 ANTHROPIC_MODE = os.environ.get("ANTHROPIC_MOCK_MODE", "fail").lower()
 OPENAI_MODE = os.environ.get("OPENAI_MOCK_MODE", "stream").lower()
+DEMO_COST = os.environ.get("DEMO_COST", "0") in {"1", "true", "yes"}
 
 
 def _read_json(handler: BaseHTTPRequestHandler) -> dict:
@@ -54,7 +59,9 @@ class AnthropicHandler(BaseHTTPRequestHandler):
             return
 
         if mode == "fail":
-            body = json.dumps({"type": "error", "error": {"type": "api_error", "message": "demo primary down"}}).encode()
+            body = json.dumps(
+                {"type": "error", "error": {"type": "api_error", "message": "demo primary down"}}
+            ).encode()
             self.send_response(503)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -62,7 +69,6 @@ class AnthropicHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
 
-        # stream or drop
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -82,8 +88,6 @@ class AnthropicHandler(BaseHTTPRequestHandler):
             time.sleep(0.05)
 
         if mode == "drop":
-            # Emit one good token, then a broken SSE payload so the gateway hard-fails
-            # mid-stream (does not treat TCP close as a clean completion / [DONE]).
             time.sleep(0.05)
             self.wfile.write(b"event: content_block_delta\ndata: {not-valid-json\n\n")
             self.wfile.flush()
@@ -99,65 +103,94 @@ class AnthropicHandler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
 
-class OpenAiHandler(BaseHTTPRequestHandler):
-    def log_message(self, fmt: str, *args) -> None:
-        print(f"[openai-mock] {self.command} {self.path} -> {fmt % args}")
+def make_openai_handler(label: str, log_name: str):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, fmt: str, *args) -> None:
+            print(f"[{log_name}] {self.command} {self.path} -> {fmt % args}")
 
-    def do_POST(self) -> None:
-        if self.path.rstrip("/") != "/chat/completions":
-            self.send_error(404, "not found")
-            return
-        body = _read_json(self)
-        stream = bool(body.get("stream"))
+        def do_POST(self) -> None:
+            if self.path.rstrip("/") != "/chat/completions":
+                self.send_error(404, "not found")
+                return
+            body = _read_json(self)
+            stream = bool(body.get("stream"))
+            model = body.get("model", "gpt-demo")
 
-        if OPENAI_MODE == "fail":
-            payload = json.dumps({"error": {"message": "demo openai down"}}).encode()
-            self.send_response(503)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(payload)))
-            self.end_headers()
-            self.wfile.write(payload)
-            return
+            if OPENAI_MODE == "fail":
+                payload = json.dumps({"error": {"message": f"demo {label} down"}}).encode()
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
 
-        if not stream:
-            payload = {
-                "id": "chatcmpl-demo",
-                "object": "chat.completion",
-                "model": body.get("model", "gpt-4o"),
-                "choices": [
-                    {
-                        "index": 0,
-                        "message": {"role": "assistant", "content": "Hello from OpenAI mock"},
-                        "finish_reason": "stop",
-                    }
-                ],
-            }
-            raw = json.dumps(payload).encode()
+            text = f"Hello from {label} provider"
+            if not stream:
+                payload = {
+                    "id": f"chatcmpl-{label}",
+                    "object": "chat.completion",
+                    "model": model,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {"role": "assistant", "content": text},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                }
+                raw = json.dumps(payload).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+                return
+
             self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(raw)))
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
             self.end_headers()
-            self.wfile.write(raw)
-            return
-
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.send_header("Cache-Control", "no-cache")
-        self.end_headers()
-        chunks = [
-            {"id": "chatcmpl-demo", "object": "chat.completion.chunk", "model": "gpt-4o",
-             "choices": [{"index": 0, "delta": {"role": "assistant", "content": "Hello"}, "finish_reason": None}]},
-            {"id": "chatcmpl-demo", "object": "chat.completion.chunk", "model": "gpt-4o",
-             "choices": [{"index": 0, "delta": {"content": " from OpenAI mock"}, "finish_reason": None}]},
-            {"id": "chatcmpl-demo", "object": "chat.completion.chunk", "model": "gpt-4o",
-             "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]},
-        ]
-        for chunk in chunks:
-            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+            chunks = [
+                {
+                    "id": f"chatcmpl-{label}",
+                    "object": "chat.completion.chunk",
+                    "model": model,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"role": "assistant", "content": "Hello from "},
+                            "finish_reason": None,
+                        }
+                    ],
+                },
+                {
+                    "id": f"chatcmpl-{label}",
+                    "object": "chat.completion.chunk",
+                    "model": model,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"content": f"{label} provider"},
+                            "finish_reason": None,
+                        }
+                    ],
+                },
+                {
+                    "id": f"chatcmpl-{label}",
+                    "object": "chat.completion.chunk",
+                    "model": model,
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+                },
+            ]
+            for chunk in chunks:
+                self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+                self.wfile.flush()
+                time.sleep(0.05)
+            self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
-            time.sleep(0.05)
-        self.wfile.write(b"data: [DONE]\n\n")
-        self.wfile.flush()
+
+    return Handler
 
 
 def _serve(handler, port: int, name: str) -> None:
@@ -167,11 +200,46 @@ def _serve(handler, port: int, name: str) -> None:
 
 
 def main() -> None:
-    print(f"ANTHROPIC_MOCK_MODE={ANTHROPIC_MODE}  OPENAI_MOCK_MODE={OPENAI_MODE}")
+    print(
+        f"ANTHROPIC_MOCK_MODE={ANTHROPIC_MODE}  OPENAI_MOCK_MODE={OPENAI_MODE}  DEMO_COST={DEMO_COST}"
+    )
     threads = [
-        threading.Thread(target=_serve, args=(AnthropicHandler, ANTHROPIC_PORT, "anthropic-mock"), daemon=True),
-        threading.Thread(target=_serve, args=(OpenAiHandler, OPENAI_PORT, "openai-mock"), daemon=True),
+        threading.Thread(
+            target=_serve, args=(AnthropicHandler, ANTHROPIC_PORT, "anthropic-mock"), daemon=True
+        ),
     ]
+    if DEMO_COST:
+        threads.extend(
+            [
+                threading.Thread(
+                    target=_serve,
+                    args=(
+                        make_openai_handler("EXPENSIVE", "openai-expensive-mock"),
+                        OPENAI_EXPENSIVE_PORT,
+                        "openai-expensive-mock",
+                    ),
+                    daemon=True,
+                ),
+                threading.Thread(
+                    target=_serve,
+                    args=(
+                        make_openai_handler("CHEAP", "openai-cheap-mock"),
+                        OPENAI_CHEAP_PORT,
+                        "openai-cheap-mock",
+                    ),
+                    daemon=True,
+                ),
+            ]
+        )
+    else:
+        threads.append(
+            threading.Thread(
+                target=_serve,
+                args=(make_openai_handler("OpenAI mock", "openai-mock"), OPENAI_PORT, "openai-mock"),
+                daemon=True,
+            )
+        )
+
     for t in threads:
         t.start()
     try:

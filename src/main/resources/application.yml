@@ -27,6 +27,12 @@ providers:
   openai:
     base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
     api-key: ${OPENAI_API_KEY:}
+  openai-cheap:
+    base-url: ${OPENAI_CHEAP_BASE_URL:https://api.openai.com/v1}
+    api-key: ${OPENAI_CHEAP_API_KEY:}
+  openai-expensive:
+    base-url: ${OPENAI_EXPENSIVE_BASE_URL:https://api.openai.com/v1}
+    api-key: ${OPENAI_EXPENSIVE_API_KEY:}
   anthropic:
     base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
     api-key: ${ANTHROPIC_API_KEY:}

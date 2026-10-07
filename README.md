@@ -40,8 +40,14 @@ On every push and pull request, GitHub Actions runs the same suite (`.github/wor
 
 ### Manual demo (curl + mocks)
 
-**Follow-along:** **[DEMO.md](DEMO.md)** (3 terminals, copy/paste).  
+**Follow-along:** **[DEMO.md](DEMO.md)** (basic failover, mid-stream hard fail, **cost-effective failover**).  
 Full matrix: [docs/manual-test-plan.md](docs/manual-test-plan.md).
+
+```bash
+# Cost demo (cheapest secondary wins)
+DEMO_COST=1 ANTHROPIC_MOCK_MODE=fail OPENAI_MOCK_MODE=stream python3 scripts/demo_mocks.py
+./scripts/run-cost-demo-gateway.sh
+```
 
 ## Documentation
 
