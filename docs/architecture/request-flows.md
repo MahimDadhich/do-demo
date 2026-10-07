@@ -27,7 +27,8 @@ sequenceDiagram
   C->>H: POST /v1/chat/completions (stream=true)
   H->>H: Validate unified request
   H->>R: Handle(request, clientAbort)
-  R->>R: Resolve model → [target1, target2, ...]
+  R->>R: model or default assistant-default
+  R->>R: Resolve → [target1, target2, ...] or 404 unknown
   R->>A: stream(target1, signal)
   A->>U: Provider-native streaming HTTP
   U-->>A: headers OK + first event

@@ -19,17 +19,19 @@ flowchart LR
 
 - **Ingress API:** modern OpenAI-style `POST /v1/chat/completions` (messages-based). Not legacy `/v1/completions`.
 - **Adaptation boundary:** client always speaks the unified schema; **adapters translate on egress** to each upstream and normalize streams/errors back.
-- **Routing:** runtime strategy resolves a logical model/route to an **ordered target list** (example policy: Anthropic first, OpenAI second). Order comes from configuration, not hardcoded handler logic.
+- **Routing:** runtime strategy resolves a logical model to an **ordered target list** (example: Anthropic → OpenAI → …). Order comes from configuration, not hardcoded handler logic.
+- **Logical `model` field:** optional on the request. If omitted or empty, use configured default **`assistant-default`**.
+- **Unknown logical model:** return **4xx** to the client (**404** with `model_not_found`); do not call upstreams and do not failover.
 - **Streaming:** SSE proxy — pipe chunks through; do not buffer the full completion in memory.
 - **Failover:** on upstream failure classes (429, 5xx, timeouts, connection errors), try the next target **only before any SSE chunk has been sent to the client**.
 - **Mid-stream failure:** **hard failure** to the client (end/error the stream). No silent provider switch after first byte.
-- **Do not failover** on clear client errors (e.g. 400 invalid request).
+- **Do not failover** on clear client errors (e.g. 400 invalid request, 404 unknown model).
 
 ## Functional requirements (MVP)
 
 1. **Unified chat completions endpoint** — accept a standard chat-completions request; return either a normal JSON completion or an SSE token stream in the unified shape.
 2. **Provider adapter interface** — each upstream implements: map request → upstream wire format; open upstream stream/request; map upstream chunks → unified SSE; map upstream errors → gateway error classes.
-3. **Dynamic route resolution** — given `model` (and later any route metadata), load an ordered list of targets `{ provider, upstreamModel, credentialsRef }` at request time.
+3. **Dynamic route resolution** — resolve logical `model` (default `assistant-default`) to an ordered list of targets `{ provider, upstreamModel, credentialsRef }` at request time. Unknown names → 404 `model_not_found`.
 4. **Streaming proxy** — when `stream: true`, forward chunks as they arrive; gateway memory stays bounded to chunk/buffer size, not full response size.
 5. **Pre-stream silent fallback** — if the primary target fails before the first client chunk, attempt the next target with the same logical request; client is not told which upstream served (logging/metrics may record it).
 6. **Mid-stream hard failure** — if the active upstream fails after streaming started, terminate the client stream with an error; do not start another provider for that request.

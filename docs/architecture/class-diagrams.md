@@ -64,11 +64,12 @@ classDiagram
   }
 
   class UnifiedChatRequest {
-    +model: string
+    +model: string?
     +messages: Message[]
     +stream: bool
     +...
   }
+  note for UnifiedChatRequest "model optional; default assistant-default"
 
   class UnifiedSseFrame {
     +payload: string

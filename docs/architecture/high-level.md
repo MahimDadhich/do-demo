@@ -20,10 +20,10 @@ A **unified LLM API gateway**. Clients call one chat-completions API. The gatewa
 | Box | One-line job |
 |---|---|
 | **Edge API** | Expose `POST /v1/chat/completions` in a single OpenAI-style schema |
-| **Router** | Turn logical `model` into an ordered list of upstream targets; run failover policy |
+| **Router** | Turn logical `model` (default `assistant-default`) into an ordered target list; run failover policy |
 | **Adapters** | Hide each provider’s URL, auth, body, and stream format |
 | **Stream pipe** | Forward tokens as they arrive; do not hold the full answer in memory |
-| **Config** | Declare routes (model → targets) and credentials references |
+| **Config** | Declare routes (logical model → ordered targets) and credentials references |
 
 ## Design principles (keep these visible)
 

@@ -96,7 +96,8 @@ Exact numbers can change in config; the **layering and failover eligibility** ab
 | ID | Requirement |
 |---|---|
 | NFR-E1 | Invalid JSON, schema validation failure, unsupported fields → **4xx** to client; no upstream call (or no failover). |
-| NFR-E2 | Upstream **4xx** that indicate bad request mapping (after adapter translation) → surface to client; **do not** failover (except explicit cases like 404 model-not-found if route policy marks it failover-eligible — default: no). |
+| NFR-E1b | Unknown logical `model` (after applying default) → **404** with code `model_not_found`; no upstream call; no failover. |
+| NFR-E2 | Upstream **4xx** that indicate bad request mapping (after adapter translation) → surface to client; **do not** failover. |
 | NFR-E3 | Upstream **429 / 5xx / network / timeout (pre-stream)** → failover-eligible. |
 
 ---
