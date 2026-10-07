@@ -7,14 +7,12 @@ import com.digitalocean.llmgateway.types.UnifiedChatRequest;
 import com.digitalocean.llmgateway.types.UnifiedSseFrame;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.MediaType;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -58,11 +56,8 @@ public class OpenAiAdapter implements ProviderAdapter {
                 UpstreamHttpSupport.ensureSuccess(response)
                     .flatMapMany(
                         ok ->
-                            ok.bodyToFlux(ServerSentEvent.class)
-                                .mapNotNull(this::sseData)
-                                .timeout(context.interChunkIdleTimeout())
-                                .map(this::toFrame)
-                                .concatWithValues(UnifiedSseFrame.done())))
+                            SseSupport.openAiStyleFrames(ok)
+                                .timeout(context.interChunkIdleTimeout())))
         .timeout(context.attemptOverallTimeout())
         .onErrorMap(UpstreamHttpSupport::mapTransportError);
   }
@@ -137,27 +132,6 @@ public class OpenAiAdapter implements ProviderAdapter {
       return content.asText();
     }
     return objectMapper.convertValue(content, Object.class);
-  }
-
-  private String sseData(ServerSentEvent<?> event) {
-    Object data = event.data();
-    return data == null ? null : String.valueOf(data);
-  }
-
-  private UnifiedSseFrame toFrame(String data) {
-    if ("[DONE]".equals(data)) {
-      return UnifiedSseFrame.done();
-    }
-    // Ensure model field reflects logical response shape; passthrough chunk JSON.
-    try {
-      JsonNode node = objectMapper.readTree(data);
-      if (node instanceof ObjectNode objectNode && !objectNode.has("object")) {
-        objectNode.put("object", "chat.completion.chunk");
-      }
-      return new UnifiedSseFrame(objectMapper.writeValueAsString(node));
-    } catch (Exception ignored) {
-      return new UnifiedSseFrame(data);
-    }
   }
 
   private void requireApiKey() {

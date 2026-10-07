@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.MediaType;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -62,10 +61,12 @@ public class AnthropicAdapter implements ProviderAdapter {
                 UpstreamHttpSupport.ensureSuccess(response)
                     .flatMapMany(
                         ok ->
-                            ok.bodyToFlux(ServerSentEvent.class)
-                                .mapNotNull(this::sseData)
+                            SseSupport.dataLines(ok)
                                 .timeout(context.interChunkIdleTimeout())
-                                .concatMap(data -> mapAnthropicEvent(data, completionId, target.getUpstreamModel()))
+                                .concatMap(
+                                    data ->
+                                        mapAnthropicEvent(
+                                            data, completionId, target.getUpstreamModel()))
                                 .concatWithValues(UnifiedSseFrame.done())))
         .timeout(context.attemptOverallTimeout())
         .onErrorMap(UpstreamHttpSupport::mapTransportError);
@@ -239,11 +240,6 @@ public class AnthropicAdapter implements ProviderAdapter {
       case "end_turn", "stop_sequence" -> "stop";
       default -> stop == null || stop.isBlank() ? "stop" : stop;
     };
-  }
-
-  private String sseData(ServerSentEvent<?> event) {
-    Object data = event.data();
-    return data == null ? null : String.valueOf(data);
   }
 
   private String textOrEmpty(JsonNode node) {
