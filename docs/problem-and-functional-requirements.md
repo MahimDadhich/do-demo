@@ -42,12 +42,13 @@ flowchart LR
 - Training, fine-tuning, or hosting models
 - Full parity of every provider-specific feature (tools/vision/etc.) beyond what the first adapters cleanly map
 
-## Out of scope until next pass
+## Related docs
 
-**Non-functional requirements** (latency budgets, timeouts, concurrency, observability, config/reload, secrets handling, deployment shape, SLOs) — see [non-functional-requirements.md](non-functional-requirements.md).
+- [Non-functional requirements](non-functional-requirements.md) — first slice: stream piping, adapters, disconnects/timeouts, testing.
+- [Architecture](architecture/README.md) — request path and component design.
 
-## Suggested sequence after this doc
+## Suggested sequence
 
-1. Agree NFRs (timeouts, retry bounds, max fallback depth, logging, config format, target stack).
-2. Produce architecture documents under [`architecture/`](architecture/).
+1. Agree the NFR + architecture first slice.
+2. Fill deferred NFR topics (broader SLOs, observability catalog, stack/deploy, auth).
 3. Implement against those docs (scaffold, adapters, route table, streaming path, failure-matrix tests).

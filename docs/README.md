@@ -5,8 +5,8 @@ Design artifacts for the unified LLM gateway. Keep product decisions here before
 ## Index
 
 1. [Problem statement & functional requirements](problem-and-functional-requirements.md) — what we are building and the MVP behavior rules.
-2. [Non-functional requirements](non-functional-requirements.md) — performance, reliability, ops (to be written next).
-3. [Architecture](architecture/README.md) — system design, adapters, routing, streaming, failover (to follow NFRs).
+2. [Non-functional requirements](non-functional-requirements.md) — streaming memory, adapter separation, disconnects/timeouts, testing (more topics deferred).
+3. [Architecture](architecture/README.md) — request path, stream pipe, adapters, routing/failover, tests.
 
 ## Conventions
 
