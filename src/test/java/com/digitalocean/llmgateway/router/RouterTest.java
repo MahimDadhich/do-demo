@@ -199,6 +199,46 @@ class RouterTest {
   }
 
   @Test
+  void failoverPrefersCheaperSecondaryBeforeExpensive() {
+    GatewayProperties.Target primary = target("primary", "model-a", 15);
+    GatewayProperties.Target expensive = target("expensive", "model-x", 20);
+    GatewayProperties.Target cheap = target("cheap", "model-y", 2);
+    GatewayProperties.ModelRoute route = new GatewayProperties.ModelRoute();
+    // Expensive listed before cheap in config; cost sort should try cheap first after primary.
+    route.setTargets(List.of(primary, expensive, cheap));
+    properties.getModels().put("assistant-default", route);
+    routeConfig = new RouteConfig(properties);
+
+    List<String> attemptOrder = new ArrayList<>();
+    Router router =
+        routerWith(
+            fake(
+                "primary",
+                (req, t, ctx) -> {
+                  attemptOrder.add("primary");
+                  return Flux.error(GatewayError.unavailable(503, "primary down"));
+                }),
+            fake(
+                "expensive",
+                (req, t, ctx) -> {
+                  attemptOrder.add("expensive");
+                  return Flux.just(new UnifiedSseFrame("{\"from\":\"expensive\"}"), UnifiedSseFrame.done());
+                }),
+            fake(
+                "cheap",
+                (req, t, ctx) -> {
+                  attemptOrder.add("cheap");
+                  return Flux.just(new UnifiedSseFrame("{\"from\":\"cheap\"}"), UnifiedSseFrame.done());
+                }));
+
+    StepVerifier.create(router.stream(request("assistant-default", true), Mono.never()).map(UnifiedSseFrame::payload))
+        .expectNext("{\"from\":\"cheap\"}")
+        .expectNext("[DONE]")
+        .verifyComplete();
+    assertThat(attemptOrder).containsExactly("primary", "cheap");
+  }
+
+  @Test
   void completeFailoversBeforeSuccess() {
     ObjectMapper mapper = objectMapper;
     Router router =
@@ -221,10 +261,15 @@ class RouterTest {
   }
 
   private static GatewayProperties.Target target(String provider, String model) {
+    return target(provider, model, 0);
+  }
+
+  private static GatewayProperties.Target target(String provider, String model, double cost) {
     GatewayProperties.Target target = new GatewayProperties.Target();
     target.setProvider(provider);
     target.setUpstreamModel(model);
     target.setCredentialsRef(provider + "_default");
+    target.setCost(cost);
     return target;
   }
 

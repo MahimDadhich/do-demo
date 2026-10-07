@@ -8,9 +8,9 @@ At request time:
    - If **missing / null / empty** → use default **`assistant-default`**.
 2. Look up that name in route config.
    - If **not found** → **404** `model_not_found` (4xx client error); no upstream calls, no failover.
-3. Otherwise load the ordered target list:
-   `{ provider, upstreamModel, credentialsRef }[]`
-   - `targets[0]` = primary, `targets[1]` = first fallback, and so on.
+3. Build the attempt order:
+   - **Primary** = first configured target (default strategy — always tried first).
+   - **Secondaries** = remaining targets sorted by **`cost` ascending** (cheapest provider target first). Equal costs keep YAML order.
 4. Cap list length by `max_targets` (NFR default: 3).
 5. For each target in order, run one **attempt** via the adapter registry.
 
@@ -21,16 +21,21 @@ defaultModel: assistant-default
 models:
   assistant-default:
     targets:
-      - provider: anthropic          # primary
+      - provider: anthropic          # primary (always first)
         upstreamModel: claude-sonnet-4-20250514
         credentialsRef: anthropic_default
-      - provider: openai             # fallback if Anthropic fails pre-stream
+        cost: 15.0
+      - provider: openai             # secondary — lower cost → preferred on failover
         upstreamModel: gpt-4o
         credentialsRef: openai_default
-      # - provider: other            # further fallbacks as configured
+        cost: 5.0
+      - provider: other              # secondary — higher cost → tried later
+        upstreamModel: other-model
+        credentialsRef: other_default
+        cost: 12.0
 ```
 
-Caller sends the **logical** name they want (or omits it for the default). They do **not** pick Anthropic vs OpenAI on the wire — that order is config.
+Caller sends the **logical** name they want (or omits it for the default). They do **not** pick providers on the wire — primary + cost-ordered secondaries come from config.
 
 ## Attempt lifecycle
 

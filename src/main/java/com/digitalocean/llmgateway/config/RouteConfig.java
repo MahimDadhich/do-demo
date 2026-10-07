@@ -1,7 +1,10 @@
 package com.digitalocean.llmgateway.config;
 
 import com.digitalocean.llmgateway.router.GatewayError;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,14 +23,43 @@ public class RouteConfig {
     return requestedModel.trim();
   }
 
+  /**
+   * Resolve attempt order for a logical model:
+   *
+   * <ol>
+   *   <li>Primary = first configured target (default strategy)
+   *   <li>Secondaries = remaining targets sorted by {@code cost} ascending (cheapest first)
+   *   <li>Trim to {@code max-targets}
+   * </ol>
+   */
   public List<GatewayProperties.Target> getTargets(String logicalModel) {
     GatewayProperties.ModelRoute route = properties.getModels().get(logicalModel);
     if (route == null || route.getTargets() == null || route.getTargets().isEmpty()) {
       throw GatewayError.modelNotFound(logicalModel);
     }
+
+    List<GatewayProperties.Target> configured = route.getTargets();
+    List<GatewayProperties.Target> ordered = new ArrayList<>(configured.size());
+    ordered.add(configured.get(0));
+
+    if (configured.size() > 1) {
+      List<GatewayProperties.Target> secondaries = configured.subList(1, configured.size());
+      List<Integer> rank =
+          IntStream.range(0, secondaries.size())
+              .boxed()
+              .sorted(
+                  Comparator.comparingDouble((Integer i) -> secondaries.get(i).getCost())
+                      .thenComparingInt(i -> i))
+              .toList();
+      for (int i : rank) {
+        ordered.add(secondaries.get(i));
+      }
+    }
+
     int max = Math.max(1, properties.getMaxTargets());
-    List<GatewayProperties.Target> targets = route.getTargets();
-    return targets.size() <= max ? List.copyOf(targets) : List.copyOf(targets.subList(0, max));
+    return ordered.size() <= max
+        ? List.copyOf(ordered)
+        : List.copyOf(ordered.subList(0, max));
   }
 
   public GatewayProperties.Timeouts timeouts() {

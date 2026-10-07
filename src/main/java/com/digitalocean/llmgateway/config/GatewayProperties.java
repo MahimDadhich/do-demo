@@ -111,6 +111,8 @@ public class GatewayProperties {
     private String provider;
     private String upstreamModel;
     private String credentialsRef;
+    /** Relative cost weight for failover ordering among secondaries (lower = cheaper). */
+    private double cost = 0.0;
 
     public String getProvider() {
       return provider;
@@ -134,6 +136,14 @@ public class GatewayProperties {
 
     public void setCredentialsRef(String credentialsRef) {
       this.credentialsRef = credentialsRef;
+    }
+
+    public double getCost() {
+      return cost;
+    }
+
+    public void setCost(double cost) {
+      this.cost = cost;
     }
   }
 }

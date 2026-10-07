@@ -12,13 +12,16 @@ gateway:
   max-targets: 3
   models:
     assistant-default:
+      # First entry = primary. Remaining secondaries are tried by lowest cost first.
       targets:
         - provider: anthropic
           upstream-model: claude-sonnet-4-20250514
           credentials-ref: anthropic_default
+          cost: 15.0
         - provider: openai
           upstream-model: gpt-4o
           credentials-ref: openai_default
+          cost: 5.0
 
 providers:
   openai:

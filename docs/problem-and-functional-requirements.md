@@ -19,7 +19,7 @@ flowchart LR
 
 - **Ingress API:** modern OpenAI-style `POST /v1/chat/completions` (messages-based). Not legacy `/v1/completions`.
 - **Adaptation boundary:** client always speaks the unified schema; **adapters translate on egress** to each upstream and normalize streams/errors back.
-- **Routing:** runtime strategy resolves a logical model to an **ordered target list** (example: Anthropic → OpenAI → …). Order comes from configuration, not hardcoded handler logic.
+- **Routing:** runtime strategy resolves a logical model to an **ordered target list**. The first configured target is the **primary**; remaining **secondaries** are ordered by ascending **cost** (cheapest fallback first).
 - **Logical `model` field:** optional on the request. If omitted or empty, use configured default **`assistant-default`**.
 - **Unknown logical model:** return **4xx** to the client (**404** with `model_not_found`); do not call upstreams and do not failover.
 - **Streaming:** SSE proxy — pipe chunks through; do not buffer the full completion in memory.

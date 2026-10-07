@@ -30,11 +30,13 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 - Omit `model` (or leave it blank) to use logical model **`assistant-default`** (Anthropic → OpenAI).
 - Unknown logical models return **404** `model_not_found`.
 
-## Tests
+## Tests / CI
 
 ```bash
 mvn test
 ```
+
+On every push and pull request, GitHub Actions runs the same suite (`.github/workflows/ci.yml`).
 
 ### Manual demo (curl + mocks)
 
