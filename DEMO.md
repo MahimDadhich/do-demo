@@ -1,6 +1,9 @@
 # Follow-along demo (simple)
 
-Three terminals. Copy/paste only. No real API keys.
+Three terminals. Copy/paste only. No real upstream API keys.
+
+Gateway auth default key: **`gw_demo_key`** (scope `chat`). Send  
+`Authorization: Bearer gw_demo_key` on completions calls.
 
 ---
 
@@ -34,6 +37,7 @@ Anthropic fails → gateway tries OpenAI → you get a stream.
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Authorization: Bearer gw_demo_key' \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
 ```
@@ -41,26 +45,37 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 **You should see:** SSE `data:` lines with `Hello` / `from OpenAI mock`, then `[DONE]`.  
 **In Terminal 2 logs:** `pre_stream_failover` then `provider=openai`.
 
-### 2. Unknown model (404)
+### 2. Reject missing key (401)
 
 ```bash
 curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"x"}],"stream":false}'
+```
+
+**You should see:** HTTP `401` (`missing api key`) — no upstream call.
+
+### 3. Unknown model (404)
+
+```bash
+curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Authorization: Bearer gw_demo_key' \
   -H 'Content-Type: application/json' \
   -d '{"model":"nope","messages":[{"role":"user","content":"x"}],"stream":false}'
 ```
 
 **You should see:** HTTP `404` and `model_not_found`.
 
-### 3. Bad request (400)
+### 4. Bad request (400)
 
 ```bash
 curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Authorization: Bearer gw_demo_key' \
   -H 'Content-Type: application/json' \
   -d '{"stream":true}'
 ```
 
 **You should see:** HTTP `400` (messages missing).
-
 ---
 
 ## Optional — mid-stream hard fail
@@ -111,6 +126,7 @@ Runtime order after sort: **anthropic → openai-cheap → openai-expensive**.
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Authorization: Bearer gw_demo_key' \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
 ```
@@ -118,7 +134,6 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 **You should see:** stream text `Hello from CHEAP provider` (not EXPENSIVE).  
 **Mocks:** anthropic **503**, then **openai-cheap-mock** 200 — expensive mock stays quiet.  
 **Logs:** `pre_stream_failover` from anthropic → `stream_locked ... provider=openai-cheap`.
-
 ---
 
 More cases: [docs/manual-test-plan.md](docs/manual-test-plan.md)

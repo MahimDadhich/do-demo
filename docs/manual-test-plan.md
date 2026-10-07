@@ -5,6 +5,8 @@ Use this for a live demo of success, client errors, and **pre-stream failover**.
 **Gateway base URL:** `http://127.0.0.1:43127`  
 **Endpoint:** `POST /v1/chat/completions`
 
+**Auth:** every completions curl needs `-H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}"` (or `X-Api-Key`). `/health` is public.
+
 ---
 
 ## Demo modes
@@ -75,6 +77,7 @@ Same as above — omit `model` so router uses `assistant-default`.
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"ping"}],"stream":true}'
 ```
@@ -85,6 +88,7 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "assistant-default",
@@ -99,6 +103,7 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 
 ```bash
 curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "does-not-exist",
@@ -116,6 +121,7 @@ curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
 
 ```bash
 curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"stream":true}'
 ```
@@ -126,6 +132,7 @@ curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
 
 ```bash
 curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{
     "messages": [{"role":"user","content":"Hello"}],
@@ -148,6 +155,7 @@ Restart or keep gateway (same env). Then:
 
 ```bash
 curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"x"}],"stream":false}'
 ```
@@ -163,6 +171,7 @@ ANTHROPIC_MOCK_MODE=stream OPENAI_MOCK_MODE=fail python3 scripts/demo_mocks.py
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hi"}],"stream":true}'
 ```
@@ -177,6 +186,7 @@ ANTHROPIC_MOCK_MODE=drop OPENAI_MOCK_MODE=stream python3 scripts/demo_mocks.py
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hi"}],"stream":true}'
 ```
@@ -191,6 +201,7 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 
 ```bash
 curl -sN --max-time 1 http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hi"}],"stream":true}'
 ```
@@ -213,6 +224,7 @@ mvn -q spring-boot:run
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{
     "messages": [{"role":"user","content":"Say hello in one short sentence."}],
@@ -235,6 +247,7 @@ DEMO_COST=1 ANTHROPIC_MOCK_MODE=fail OPENAI_MOCK_MODE=stream python3 scripts/dem
 
 # terminal 3
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
 ```

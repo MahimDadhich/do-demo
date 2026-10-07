@@ -2,6 +2,14 @@ server:
   port: 43127
 
 gateway:
+  auth:
+    enabled: true
+    keys:
+      # Lightweight demo key — override via GATEWAY_API_KEY in real deploys.
+      - id: demo
+        key: ${GATEWAY_API_KEY:gw_demo_key}
+        scopes:
+          - chat
   default-model: assistant-default
   timeouts:
     connect: 5s

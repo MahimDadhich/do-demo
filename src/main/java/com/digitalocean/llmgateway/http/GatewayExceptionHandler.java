@@ -43,7 +43,7 @@ public class GatewayExceptionHandler {
             .body(errorBody("internal_error", error.getMessage())));
   }
 
-  static Map<String, Object> errorBody(String code, String message) {
+  public static Map<String, Object> errorBody(String code, String message) {
     Map<String, Object> error = new LinkedHashMap<>();
     error.put("message", message == null ? code : message);
     error.put("type", "gateway_error");

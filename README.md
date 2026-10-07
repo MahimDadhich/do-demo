@@ -3,6 +3,7 @@
 OpenRouter-style API gateway in **Java 21 + Spring WebFlux**.
 
 - Unified `POST /v1/chat/completions` (OpenAI chat schema)
+- Thin **gateway API-key auth** with scopes (reject invalid traffic early)
 - Config-driven routing with **primary** + **cost-ordered secondary** failover
 - SSE streaming proxy (no full-response buffering)
 - Pre-stream silent failover; mid-stream failures are hard errors
@@ -33,15 +34,47 @@ Main config: [`src/main/resources/application.yml`](src/main/resources/applicati
 | Setting | Default | Notes |
 |---|---|---|
 | `server.port` | `43127` | HTTP port |
+| `gateway.auth.enabled` | `true` | Require API key on protected routes |
+| `gateway.auth.keys` | demo key `gw_demo_key` scope `chat` | Override with `GATEWAY_API_KEY` |
 | `gateway.default-model` | `assistant-default` | Used when request omits `model` |
 | `gateway.models.*.targets` | Anthropic primary, OpenAI secondary | First target = primary; other targets sorted by `cost` ascending on failover |
 | `gateway.timeouts.*` | connect 5s, TTFB 15s, idle 30s, … | Per-attempt / stream timeouts |
 
 Cost-failover demo profile: [`src/main/resources/application-cost.yml`](src/main/resources/application-cost.yml) (activated with `--spring.profiles.active=cost`).
 
-### 2) API keys & provider URLs
+### 2) Gateway auth (client → this API)
 
-Export env vars before starting (or put them in a local `.env` you source yourself — do not commit secrets).
+Protected routes (today: `POST /v1/chat/completions`) require a gateway API key **and** scope `chat`.
+
+Send either:
+
+```http
+Authorization: Bearer gw_demo_key
+```
+
+or:
+
+```http
+X-Api-Key: gw_demo_key
+```
+
+| Result | When |
+|---|---|
+| **401** | Missing / unknown key |
+| **403** | Valid key without required scope |
+| **200…** | Key ok + scope ok → request continues to router |
+
+`GET /health` stays public. Disable only for experiments: `gateway.auth.enabled=false`.
+
+```bash
+export GATEWAY_API_KEY=gw_demo_key   # default in application.yml if unset
+```
+
+Add more keys under `gateway.auth.keys` in YAML (id, key, scopes) — expand later for tenants/quotas.
+
+### 3) Upstream provider API keys
+
+Export env vars before starting (do not commit secrets).
 
 | Variable | Purpose |
 |---|---|
@@ -55,24 +88,23 @@ Export env vars before starting (or put them in a local `.env` you source yourse
 Example (real providers):
 
 ```bash
+export GATEWAY_API_KEY=gw_demo_key
 export ANTHROPIC_API_KEY=sk-ant-...
 export OPENAI_API_KEY=sk-...
-# optional:
-# export ANTHROPIC_BASE_URL=https://api.anthropic.com
-# export OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-Without keys, live upstream calls fail (failover may still run if another target is configured and healthy).
+Without upstream keys, live provider calls fail (failover may still run if another target is healthy).
 
 See also [`.env.example`](.env.example).
 
-### 3) Start the gateway
+### 4) Start the gateway
 
 ```bash
+export GATEWAY_API_KEY=gw_demo_key
 mvn spring-boot:run
 ```
 
-Health check:
+Health check (no auth):
 
 ```bash
 curl -sS http://127.0.0.1:43127/health
@@ -83,12 +115,13 @@ curl -sS http://127.0.0.1:43127/health
 
 ## Sample curl commands
 
-### Streaming chat (default logical model)
+Use the gateway key on every completions call.
 
-Omit `model` → uses `assistant-default` (primary Anthropic, then cheaper secondaries on pre-stream failure).
+### Streaming chat (default logical model)
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{
     "messages": [{"role": "user", "content": "Say hello in one short sentence."}],
@@ -100,6 +133,7 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 
 ```bash
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "assistant-default",
@@ -112,6 +146,7 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 
 ```bash
 curl -sS http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{
     "messages": [{"role": "user", "content": "Hello"}],
@@ -119,10 +154,20 @@ curl -sS http://127.0.0.1:43127/v1/chat/completions \
   }'
 ```
 
-### Unknown model → 404
+### Reject invalid traffic (401)
 
 ```bash
 curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Hello"}],"stream":false}'
+# HTTP/1.1 401 … missing api key
+```
+
+### Unknown model → 404 (auth must still succeed)
+
+```bash
+curl -sS -i http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "does-not-exist",
@@ -149,6 +194,7 @@ ANTHROPIC_MOCK_MODE=fail OPENAI_MOCK_MODE=stream python3 scripts/demo_mocks.py
 
 # terminal 3
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
 ```
@@ -166,6 +212,7 @@ DEMO_COST=1 ANTHROPIC_MOCK_MODE=fail OPENAI_MOCK_MODE=stream python3 scripts/dem
 
 # terminal 3 — expect "CHEAP provider" in the stream
 curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H "Authorization: Bearer ${GATEWAY_API_KEY:-gw_demo_key}" \
   -H 'Content-Type: application/json' \
   -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
 ```
