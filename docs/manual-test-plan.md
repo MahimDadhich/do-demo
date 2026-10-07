@@ -182,10 +182,10 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 ```
 
 **Expect:**
-- Some early SSE data may appear (`Hello from Anthropic mock`)
-- Stream then errors / ends
-- Gateway log: `mid_stream_hard_fail`
-- OpenAI mock **not** used for this request
+- One early SSE chunk (`Hello from Anthropic mock`)
+- Then an error (not a clean `data:[DONE]` success)
+- Gateway log: `stream_locked ... anthropic` then `mid_stream_hard_fail`
+- OpenAI mock **not** called (no `[openai-mock]` line for that request)
 
 #### 10) Client disconnect (optional)
 

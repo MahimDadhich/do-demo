@@ -73,8 +73,9 @@ ANTHROPIC_MOCK_MODE=drop OPENAI_MOCK_MODE=stream python3 scripts/demo_mocks.py
 
 Then run the same stream curl from step 1.
 
-**You should see:** a partial Anthropic mock token, then the stream dies.  
-**Logs:** `mid_stream_hard_fail` — OpenAI is **not** used.
+**You should see:** one Anthropic chunk (`Hello from Anthropic mock`), then an error frame (not a clean success).  
+**You should not see:** a normal completion from OpenAI.  
+**Logs:** `stream_locked ... provider=anthropic` then `mid_stream_hard_fail` — OpenAI is **not** called.
 
 ---
 

@@ -82,7 +82,11 @@ class AnthropicHandler(BaseHTTPRequestHandler):
             time.sleep(0.05)
 
         if mode == "drop":
-            # Abrupt close after first token — mid-stream hard fail for the gateway.
+            # Emit one good token, then a broken SSE payload so the gateway hard-fails
+            # mid-stream (does not treat TCP close as a clean completion / [DONE]).
+            time.sleep(0.05)
+            self.wfile.write(b"event: content_block_delta\ndata: {not-valid-json\n\n")
+            self.wfile.flush()
             return
 
         end = {
