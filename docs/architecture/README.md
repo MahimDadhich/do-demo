@@ -1,13 +1,20 @@
 # Architecture
 
-Design docs for the unified LLM gateway. Start with the overview, then dive into streaming, adapters, routing, and testing.
+Documentation is layered on purpose:
+
+1. **[High-level (10,000 ft)](high-level.md)** — what the system is; big boxes; principles  
+2. **[Request flows & sequences](request-flows.md)** — happy path, failover, mid-stream fail, disconnect  
+3. **[Class diagrams](class-diagrams.md)** — conceptual types and package sketch  
+
+Start with those three. Use [overview.md](overview.md) as the short plan/index.
+
+### Deeper references
 
 | Doc | Intent |
 |---|---|
-| [overview.md](overview.md) | Request path, components, sequence/flow diagrams |
-| [streaming.md](streaming.md) | SSE pipe model, memory bounds, abort/partial streams |
-| [adapters.md](adapters.md) | Provider adapter interface and responsibility split |
-| [routing-and-failover.md](routing-and-failover.md) | Route table, attempt loop, eligibility matrix |
-| [testing.md](testing.md) | Unit + integration strategy aligned to NFRs |
+| [streaming.md](streaming.md) | SSE pipe model, memory bounds |
+| [adapters.md](adapters.md) | Adapter interface and error classes |
+| [routing-and-failover.md](routing-and-failover.md) | Route table and eligibility matrix |
+| [testing.md](testing.md) | Unit + integration strategy |
 
-Product rules: [Functional requirements](../problem-and-functional-requirements.md) · [NFRs](../non-functional-requirements.md)
+Product rules: [FRs](../problem-and-functional-requirements.md) · [NFRs](../non-functional-requirements.md)
