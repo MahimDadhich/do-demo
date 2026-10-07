@@ -1,0 +1,34 @@
+server:
+  port: 43127
+
+gateway:
+  default-model: assistant-default
+  timeouts:
+    connect: 5s
+    ttfb: 15s
+    inter-chunk-idle: 30s
+    attempt-overall: 120s
+    request-overall: 180s
+  max-targets: 3
+  models:
+    assistant-default:
+      targets:
+        - provider: anthropic
+          upstream-model: claude-sonnet-4-20250514
+          credentials-ref: anthropic_default
+        - provider: openai
+          upstream-model: gpt-4o
+          credentials-ref: openai_default
+
+providers:
+  openai:
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${OPENAI_API_KEY:}
+  anthropic:
+    base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+    api-key: ${ANTHROPIC_API_KEY:}
+    version: "2023-06-01"
+
+logging:
+  level:
+    com.digitalocean.llmgateway: INFO

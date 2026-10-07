@@ -5,18 +5,20 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+*.iml
 
 # Env / secrets
 .env
 .env.*
 !.env.example
 
-# Dependencies / build (reserved for upcoming implementation)
+# Maven / Java
+target/
+.mvn/wrapper/maven-wrapper.jar
+*.class
+hs_err_pid*
+
+# Node leftovers (unused)
 node_modules/
 dist/
-build/
 coverage/
-.venv/
-__pycache__/
-*.pyc
-.target/
