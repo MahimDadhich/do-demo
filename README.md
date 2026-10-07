@@ -36,6 +36,23 @@ curl -sN http://127.0.0.1:43127/v1/chat/completions \
 mvn test
 ```
 
+### Manual demo (curl + mocks)
+
+See **[docs/manual-test-plan.md](docs/manual-test-plan.md)** for success, 404, failover, and mid-stream hard-fail curls.
+
+```bash
+# terminal 1 — mocks (Anthropic 503, OpenAI streams)
+ANTHROPIC_MOCK_MODE=fail OPENAI_MOCK_MODE=stream python3 scripts/demo_mocks.py
+
+# terminal 2 — gateway
+./scripts/run-demo-gateway.sh
+
+# terminal 3 — failover stream
+curl -sN http://127.0.0.1:43127/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
+```
+
 ## Documentation
 
 | Document | Status |
