@@ -18,6 +18,10 @@ target/
 *.class
 hs_err_pid*
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Node leftovers (unused)
 node_modules/
 dist/
